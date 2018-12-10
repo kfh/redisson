@@ -15,28 +15,28 @@
  */
 package org.redisson.codec;
 
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import de.javakaffee.kryoserializers.UnmodifiableCollectionsSerializer;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufAllocator;
+import io.netty.buffer.ByteBufInputStream;
+import io.netty.buffer.ByteBufOutputStream;
+import org.objenesis.strategy.StdInstantiatorStrategy;
+import org.redisson.client.codec.BaseCodec;
+import org.redisson.client.handler.State;
+import org.redisson.client.protocol.Decoder;
+import org.redisson.client.protocol.Encoder;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-import org.redisson.client.codec.BaseCodec;
-import org.redisson.client.handler.State;
-import org.redisson.client.protocol.Decoder;
-import org.redisson.client.protocol.Encoder;
-
-import com.esotericsoftware.kryo.Kryo;
-import com.esotericsoftware.kryo.io.Input;
-import com.esotericsoftware.kryo.io.Output;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufInputStream;
-import io.netty.buffer.ByteBufOutputStream;
-
 /**
- * 
+ *
  * @author Nikita Koksharov
  *
  */
@@ -85,10 +85,18 @@ public class KryoCodec extends BaseCodec {
             if (classLoader != null) {
                 kryo.setClassLoader(classLoader);
             }
-            kryo.setReferences(false);
+
+            kryo.setReferences(true);
+
             for (Class<?> clazz : classes) {
                 kryo.register(clazz);
             }
+
+            UnmodifiableCollectionsSerializer.registerSerializers(kryo);
+
+            kryo.setInstantiatorStrategy(
+                    new Kryo.DefaultInstantiatorStrategy(new StdInstantiatorStrategy())
+            );
             return kryo;
         }
 
@@ -165,7 +173,7 @@ public class KryoCodec extends BaseCodec {
     public KryoCodec(ClassLoader classLoader) {
         this(Collections.<Class<?>>emptyList(), classLoader);
     }
-    
+
     public KryoCodec(List<Class<?>> classes) {
         this(classes, null);
     }
@@ -187,7 +195,7 @@ public class KryoCodec extends BaseCodec {
     public Encoder getValueEncoder() {
         return encoder;
     }
-    
+
     @Override
     public ClassLoader getClassLoader() {
         if (kryoPool.getClassLoader() != null) {
